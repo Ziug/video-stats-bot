@@ -63,6 +63,7 @@ PROMPT = """Ты помощник по генерации SQL запросов �
 "Сколько видео с более чем 100000 просмотров?" -> {"sql": "SELECT COUNT(*) FROM videos WHERE views_count > 100000"}
 "На сколько выросли просмотры 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots WHERE date(created_at) = '2025-11-28'"}
 "Сколько уникальных видео получали просмотры 27 ноября?" -> {"sql": "SELECT COUNT(DISTINCT video_id) FROM video_snapshots WHERE delta_views_count > 0 AND date(created_at) = '2025-11-27'"}
+"Какое суммарное количество просмотров в июне 2025?" -> {"sql": "SELECT COALESCE(SUM(views_count),0) FROM videos WHERE EXTRACT(MONTH FROM video_created_at) = 6 AND EXTRACT(YEAR FROM video_created_at) = 2025"}
 
 Правила:
 1. SQL ДОЛЖЕН ВОЗВРАЩАТЬ РОВНО ОДНО ЧИСЛО
@@ -70,7 +71,7 @@ PROMPT = """Ты помощник по генерации SQL запросов �
 3. Никогда не возвращай названия, ID или текст - только числовые агрегаты
 4. Возвращай ТОЛЬКО JSON {"sql": "..."}
 5. Используй ТОЛЬКО таблицы videos и video_snapshots
-6. Допускаются функции: COUNT, SUM, AVG, MIN, MAX, DISTINCT, date, COALESCE
+6. Допускаются функции: COUNT, SUM, AVG, MIN, MAX, DISTINCT, date, COALESCE, EXTRACT
 7. Без точек с запятой в конце SQL"""
 
 ALLOWED_TABLES = {"videos", "video_snapshots"}
@@ -86,17 +87,25 @@ def validate_sql(sql: str) -> bool:
     for f in forbidden:
         if f in low:
             return False
-    tables = set(re.findall(r"from\s+([a-z_]+)|join\s+([a-z_]+)", low))
-    found = set()
-    for a, b in tables:
-        if a:
-            found.add(a)
-        if b:
-            found.add(b)
-    if not found:
+    
+    sql_lower = low
+    where_pos = sql_lower.find(" where ")
+    if where_pos == -1:
+        where_pos = sql_lower.find(" group ")
+    if where_pos == -1:
+        where_pos = sql_lower.find(" order ")
+    if where_pos == -1:
+        where_pos = len(sql_lower)
+    
+    from_to_where = sql_lower[:where_pos]
+    tables = set(re.findall(r"(?:from|join)\s+([a-z_]+)", from_to_where))
+    print(f"Found tables: {tables}")
+    
+    if not tables:
         return False
-    for t in found:
+    for t in tables:
         if t not in ALLOWED_TABLES:
+            print(f"Table {t} not in allowed: {ALLOWED_TABLES}")
             return False
     return True
 
@@ -109,6 +118,17 @@ async def sql_from_llm(user_text: str) -> str:
     content = resp.choices[0].message.content.strip()
     print(f"Ответ LLMки: {content}")
 
+    m = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+    if m:
+        try:
+            json_str = m.group(1)
+            j = json.loads(json_str)
+            sql = j.get("sql", "").strip()
+            if sql:
+                return sql
+        except Exception as e:
+            print(f"ошибка парсинга JSON из markdown: {e}")
+    
     try:
         j = json.loads(content)
         sql = j.get("sql", "").strip()
@@ -116,7 +136,6 @@ async def sql_from_llm(user_text: str) -> str:
             return sql
     except Exception as e:
         print(f"ошибка парсинга JSON: {e}")
-
     
     m = re.search(r'"sql"\s*:\s*"([^"]*)"', content)
     if m:
@@ -143,23 +162,23 @@ async def handle_message(event: types.Message):
     print(f"SQL: {sql}")
 
     if not sql:
-        # await event.answer("ЛЛМ не дала ответа SQL")
         await event.answer("0")
         return
     is_valid = validate_sql(sql)
+    print(f"Valid: {is_valid}")
     if not is_valid:
-        # await event.answer("ЛЛМ дала не правильный SQL")
         await event.answer("0")
         return
     db_url = parse_db_url(DATABASE_URL)
     conn = await asyncpg.connect(db_url)
     try:
         val = await conn.fetchval(sql)
+        print(f"Result: {val}")
         if val is None:
             val = 0
         await event.answer(str(int(val)))
-    except Exception:
-        # await event.answer("нет ответа")
+    except Exception as e:
+        print(f"DB Error: {e}")
         await event.answer("0")
     finally:
         await conn.close()
