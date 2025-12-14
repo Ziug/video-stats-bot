@@ -14,7 +14,7 @@
 ### Переменные окружения 
 задаются токены для бота телеграм/мистраль + конфигурация БД
 
-DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/dbname
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/dbname \
 TELEGRAM_BOT_TOKEN=токен-бота-телеграма \
 MISTRAL_API_KEY=апи-мистраля
 
@@ -26,7 +26,7 @@ MISTRAL_API_KEY=апи-мистраля
 Настройка токена Telegram-бота
 ---
 Токен Telegram-бота передаётся через переменную окружения:
-TELEGRAM_BOT_TOKEN=токен-бота-телеграма\
+TELEGRAM_BOT_TOKEN=токен-бота-телеграма
 
 
 Архитектура работы бота
