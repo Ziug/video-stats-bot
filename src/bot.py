@@ -63,9 +63,11 @@ PROMPT = """Ты помощник по генерации SQL запросов �
 "Сколько видео с более чем 100000 просмотров?" -> {"sql": "SELECT COUNT(*) FROM videos WHERE views_count > 100000"}
 "На сколько выросли просмотры 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots WHERE date(video_snapshots.created_at) = '2025-11-28'"}
 "Сколько уникальных видео получали просмотры 27 ноября?" -> {"sql": "SELECT COUNT(DISTINCT video_id) FROM video_snapshots WHERE delta_views_count > 0 AND date(video_snapshots.created_at) = '2025-11-27'"}
-"На сколько выросли видео креатора X в 10-15 часов 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots JOIN videos ON video_snapshots.video_id = videos.id WHERE videos.creator_id = 'X' AND date(video_snapshots.created_at) = '2025-11-28' AND EXTRACT(HOUR FROM video_snapshots.created_at) BETWEEN 10 AND 15"}
+"На сколько выросли видео креатора X в 10-15 часов 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots JOIN videos ON video_snapshots.video_id = videos.id WHERE videos.creator_id = 'X' AND date(video_snapshots.created_at) = '2025-11-28' AND EXTRACT(HOUR FROM video_snapshots.created_at) >= 10 AND EXTRACT(HOUR FROM video_snapshots.created_at) < 15"}
 
-СОВЕТ: Когда используешь JOIN с video_snapshots и videos, ВСЕГДА квалифицируй created_at с помощью video_snapshots.created_at или videos.created_at!
+СОВЕТ: 
+1. Когда используешь JOIN с video_snapshots и videos, ВСЕГДА квалифицируй created_at с помощью video_snapshots.created_at или videos.created_at!
+2. При указании диапазона часов "с A до B" используй: EXTRACT(HOUR FROM created_at) >= A AND EXTRACT(HOUR FROM created_at) < B (B не включается!)
 
 Правила:
 1. SQL ДОЛЖЕН ВОЗВРАЩАТЬ РОВНО ОДНО ЧИСЛО
