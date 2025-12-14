@@ -61,9 +61,11 @@ PROMPT = """Ты помощник по генерации SQL запросов �
 "Сколько всего видео?" -> {"sql": "SELECT COUNT(*) FROM videos"}
 "Сколько видео у креатора abc?" -> {"sql": "SELECT COUNT(*) FROM videos WHERE creator_id = 'abc'"}
 "Сколько видео с более чем 100000 просмотров?" -> {"sql": "SELECT COUNT(*) FROM videos WHERE views_count > 100000"}
-"На сколько выросли просмотры 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots WHERE date(created_at) = '2025-11-28'"}
-"Сколько уникальных видео получали просмотры 27 ноября?" -> {"sql": "SELECT COUNT(DISTINCT video_id) FROM video_snapshots WHERE delta_views_count > 0 AND date(created_at) = '2025-11-27'"}
-"Какое суммарное количество просмотров в июне 2025?" -> {"sql": "SELECT COALESCE(SUM(views_count),0) FROM videos WHERE EXTRACT(MONTH FROM video_created_at) = 6 AND EXTRACT(YEAR FROM video_created_at) = 2025"}
+"На сколько выросли просмотры 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots WHERE date(video_snapshots.created_at) = '2025-11-28'"}
+"Сколько уникальных видео получали просмотры 27 ноября?" -> {"sql": "SELECT COUNT(DISTINCT video_id) FROM video_snapshots WHERE delta_views_count > 0 AND date(video_snapshots.created_at) = '2025-11-27'"}
+"На сколько выросли видео креатора X в 10-15 часов 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots JOIN videos ON video_snapshots.video_id = videos.id WHERE videos.creator_id = 'X' AND date(video_snapshots.created_at) = '2025-11-28' AND EXTRACT(HOUR FROM video_snapshots.created_at) BETWEEN 10 AND 15"}
+
+СОВЕТ: Когда используешь JOIN с video_snapshots и videos, ВСЕГДА квалифицируй created_at с помощью video_snapshots.created_at или videos.created_at!
 
 Правила:
 1. SQL ДОЛЖЕН ВОЗВРАЩАТЬ РОВНО ОДНО ЧИСЛО
@@ -99,13 +101,11 @@ def validate_sql(sql: str) -> bool:
     
     from_to_where = sql_lower[:where_pos]
     tables = set(re.findall(r"(?:from|join)\s+([a-z_]+)", from_to_where))
-    print(f"Found tables: {tables}")
     
     if not tables:
         return False
     for t in tables:
         if t not in ALLOWED_TABLES:
-            print(f"Table {t} not in allowed: {ALLOWED_TABLES}")
             return False
     return True
 
