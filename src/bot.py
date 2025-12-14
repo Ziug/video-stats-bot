@@ -63,11 +63,17 @@ PROMPT = """Ты помощник по генерации SQL запросов �
 "Сколько видео с более чем 100000 просмотров?" -> {"sql": "SELECT COUNT(*) FROM videos WHERE views_count > 100000"}
 "На сколько выросли просмотры 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots WHERE date(video_snapshots.created_at) = '2025-11-28'"}
 "Сколько уникальных видео получали просмотры 27 ноября?" -> {"sql": "SELECT COUNT(DISTINCT video_id) FROM video_snapshots WHERE delta_views_count > 0 AND date(video_snapshots.created_at) = '2025-11-27'"}
-"На сколько выросли видео креатора X в 10-15 часов 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(delta_views_count),0) FROM video_snapshots JOIN videos ON video_snapshots.video_id = videos.id WHERE videos.creator_id = 'X' AND date(video_snapshots.created_at) = '2025-11-28' AND EXTRACT(HOUR FROM video_snapshots.created_at) >= 10 AND EXTRACT(HOUR FROM video_snapshots.created_at) < 15"}
+"На сколько выросли видео креатора X в 10-15 часов 28 ноября?" -> {"sql": "SELECT COALESCE(SUM(vs.delta_views_count),0) FROM video_snapshots vs JOIN videos v ON vs.video_id = v.id WHERE v.creator_id = 'X' AND date(vs.created_at) = '2025-11-28' AND EXTRACT(HOUR FROM vs.created_at) >= 10 AND EXTRACT(HOUR FROM vs.created_at) < 15"}
+"Какое наименьшее количество лайков у видео креатора X 28 ноября?" -> {"sql": "SELECT COALESCE(MIN(vs.likes_count),0) FROM video_snapshots vs JOIN videos v ON vs.video_id = v.id WHERE v.creator_id = 'X' AND date(vs.created_at) = '2025-11-28'"}
 
 СОВЕТ: 
-1. Когда используешь JOIN с video_snapshots и videos, ВСЕГДА квалифицируй created_at с помощью video_snapshots.created_at или videos.created_at!
-2. При указании диапазона часов "с A до B" используй: EXTRACT(HOUR FROM created_at) >= A AND EXTRACT(HOUR FROM created_at) < B (B не включается!)
+1. Когда используешь JOIN с video_snapshots и videos, ВСЕГДА квалифицируй ВСЕ колонки через alias или имя таблицы! Например:
+   - video_snapshots.created_at или vs.created_at
+   - video_snapshots.likes_count или vs.likes_count
+   - videos.creator_id или v.creator_id
+   - videos.views_count или v.views_count
+2. При указании диапазона часов "с A до B" используй: EXTRACT(HOUR FROM table.created_at) >= A AND EXTRACT(HOUR FROM table.created_at) < B (B не включается!)
+3. В примерах сложных запросов используй alias для таблиц (vs для video_snapshots, v для videos)
 
 Правила:
 1. SQL ДОЛЖЕН ВОЗВРАЩАТЬ РОВНО ОДНО ЧИСЛО
